@@ -2,7 +2,9 @@ name: GitGuardian Scan
 
 on:
   workflow_call:
-
+    secrets:
+      GITGUARDIAN_API_KEY:
+        required: true
 # on:
 #   push:
 #     branches:
