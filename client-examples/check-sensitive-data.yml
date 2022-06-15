@@ -1,0 +1,14 @@
+name: Check Sensitive Data
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+
+jobs:
+  sensitive-data-scan:
+    uses: r3dlab/shared-workflows/.github/workflows/git-guardian.yml@master
+    # secrets: inherit
+    secrets:
+      GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
