@@ -19,7 +19,7 @@ on:
 
 jobs:
   release:
-    name: Release
+    name: Bump version
     runs-on: ubuntu-latest
     env:
       TAG_PREFIX: '${{ inputs.tag_prefix }}'

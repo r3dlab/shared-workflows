@@ -1,0 +1,30 @@
+---
+name: Ansible CI
+
+# secrets.GH_RELEASE_TOKEN
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test:
+    name: Test
+    uses: r3dlab/shared-workflows/.github/workflows/ansible-test.yml@master
+
+  release:
+    name: Release
+    uses: r3dlab/shared-workflows/.github/workflows/bump-version-txt.yml@master
+    needs:
+      - test
+    with:
+      tag_prefix: v
+      version_file_path: version.txt
+    secrets:
+      GH_RELEASE_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}

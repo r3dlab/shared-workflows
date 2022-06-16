@@ -1,11 +1,11 @@
-name: Ansible Lint & Test (Makefile)
+name: Ansible lint/test with Makefile
 
 on:
   workflow_call:
 
 jobs:
   ansible-test:
-    name: Ansible Test
+    name: Ansible lint/test
     runs-on: ubuntu-latest
     env:
       PY_COLORS: '1'
