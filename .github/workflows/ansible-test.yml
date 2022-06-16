@@ -1,0 +1,41 @@
+name: Ansible Lint & Test (Makefile)
+
+on:
+  workflow_call:
+
+jobs:
+  ansible-test:
+    name: Ansible Test
+    runs-on: ubuntu-latest
+    env:
+      PY_COLORS: '1'
+      ANSIBLE_FORCE_COLOR: '1'
+      DISABLE_VENV: '1' # disable venv on Makefile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Python 3
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -q -U pip setuptools wheel
+          pip install -q PyYAML
+          make configure env-dump
+
+      - name: Lint code
+        run: |
+          make lint
+
+      - name: Run tests
+        run: |
+          make test
+
+      - name: Dump context
+        uses: crazy-max/ghaction-dump-context@v1
+        if: failure()

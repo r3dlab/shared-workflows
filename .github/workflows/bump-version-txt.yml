@@ -1,0 +1,130 @@
+name: Bump version
+
+on:
+  workflow_call:
+    inputs:
+      tag_prefix:
+        description: Tag prefix
+        required: false
+        type: string
+        default: v
+      version_file_path:
+        description: Relative path of version.txt
+        required: false
+        type: string
+        default: version.txt
+    secrets:
+      GH_RELEASE_TOKEN:
+        required: true
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    env:
+      TAG_PREFIX: '${{ inputs.tag_prefix }}'
+      VERSION_FILE: '${{ inputs.version_file_path }}'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+
+      # Read version.txt file
+      - name: Read version
+        id: pre_version
+        run: |
+          echo "::set-output name=content::$(cat './${{ env.VERSION_FILE }}' )"
+
+      - name: Print version
+        run: |
+          echo "Version: ${{ env.TAG }}"
+        env:
+          TAG: ${{ env.TAG_PREFIX }}${{ steps.pre_version.outputs.content }}
+
+      # Check if tag already exist
+      - uses: bbonkr/git-tag-check-action@v1.0.7
+        id: git_tag_check
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ env.TAG }}
+        env:
+          TAG: ${{ env.TAG_PREFIX }}${{ steps.pre_version.outputs.content }}
+
+      - name: Evaluate tag presence
+        id: git_tag_check_eval
+        shell: bash
+        run: |
+          if [[ "-${{ steps.git_tag_check.outputs.tag }}" == "-" ]]; then
+            echo ::set-output name=exists::false
+          else
+            echo ::set-output name=exists::true
+          fi
+
+      - name: Log git_tag_check result
+        run: |
+          echo "> Current: '${{ env.TAG }}'"
+          echo "> Result:  '${{ steps.git_tag_check.outputs.tag }}'"
+          echo "> Evaluated: ${{ steps.git_tag_check_eval.outputs.exists }}"
+        env:
+          TAG: ${{ env.TAG_PREFIX }}${{ steps.pre_version.outputs.content }}
+
+      # Perform version upgrade
+      - name: Bump version
+        id: bump_version
+        uses: christian-draeger/increment-semantic-version@1.0.2
+        with:
+          current-version: ${{ env.VERSION }}
+          version-fragment: bug
+        env:
+          VERSION: ${{ steps.pre_version.outputs.content }}
+        if: ${{ fromJSON( steps.git_tag_check_eval.outputs.exists ) }} # if tag already exists
+
+      # Write upgraded version
+      - name: Replace version
+        run: |
+          echo "${{ env.NEXT_VERSION }}" > './${{ env.VERSION_FILE }}'
+        env:
+          NEXT_VERSION: ${{ steps.bump_version.outputs.next-version }}
+        if: ${{ fromJSON( steps.git_tag_check_eval.outputs.exists ) }} # if tag already exists
+
+      - name: Read updated version
+        id: post_version
+        run: |
+          echo "::set-output name=content::$(cat './${{ env.VERSION_FILE }}' )"
+
+      - name: Print version
+        run: |
+          echo "Version: ${{ env.TAG }}"
+        env:
+          TAG: ${{ env.TAG_PREFIX }}${{ steps.post_version.outputs.content }}
+
+      - name: Commit version upgrade
+        uses: EndBug/add-and-commit@v8
+        id: git_rel_commit
+        with:
+          add: ${{ env.VERSION_FILE }}
+          tag: ${{ env.TAG }}
+          # yamllint disable-line rule:quoted-strings
+          message: 'Bump version to ${{ env.TAG }}'
+          committer_name: GitHub Actions
+          committer_email: actions@github.com
+        env:
+          TAG: ${{ env.TAG_PREFIX }}${{ steps.post_version.outputs.content }}
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ env.TAG }}
+          # yamllint disable-line rule:quoted-strings
+          release_name: 'Release ${{ env.TAG }}'
+          draft: false
+          prerelease: false
+        env:
+          TAG: ${{ env.TAG_PREFIX }}${{ steps.post_version.outputs.content }}
+          GITHUB_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
+
+      - name: Dump context
+        uses: crazy-max/ghaction-dump-context@v1
+        if: always()
