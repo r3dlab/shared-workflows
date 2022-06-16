@@ -17,7 +17,6 @@ jobs:
   test:
     name: Test
     uses: r3dlab/shared-workflows/.github/workflows/ansible-test.yml@master
-
   release:
     name: Release
     uses: r3dlab/shared-workflows/.github/workflows/bump-version-txt.yml@master
@@ -28,3 +27,4 @@ jobs:
       version_file_path: version.txt
     secrets:
       GH_RELEASE_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
+    if: github.event_name == 'push'
