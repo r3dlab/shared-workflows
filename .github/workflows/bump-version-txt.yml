@@ -18,6 +18,11 @@ on:
         required: false
         type: string
         default: develop
+      branch_target:
+        description: Branch target
+        required: false
+        type: string
+        default: master
     secrets:
       GH_RELEASE_TOKEN:
         required: true
@@ -136,7 +141,7 @@ jobs:
         with:
           type: now
           from_branch: ${{ env.TAG }}
-          target_branch: master
+          target_branch: ${{ inputs.branch_target }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
         env:
           TAG: ${{ env.TAG_PREFIX }}${{ steps.post_version.outputs.content }}
@@ -146,7 +151,7 @@ jobs:
         uses: devmasx/merge-branch@v1.4.0
         with:
           type: now
-          from_branch: master
+          from_branch: ${{ inputs.branch_target }}
           target_branch: ${{ inputs.branch_source }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
         if: env.BRANCH_NAME == inputs.branch_source
