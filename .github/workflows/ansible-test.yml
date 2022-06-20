@@ -2,6 +2,9 @@ name: Ansible lint/test with Makefile
 
 on:
   workflow_call:
+    secrets:
+      SSH_PRIV_KEY:
+        required: false
 
 jobs:
   ansible-test:
@@ -14,6 +17,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Import private key
+        uses: webfactory/ssh-agent@v0.4.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIV_KEY }}
+        if: secrets.SSH_PRIV_KEY != null
 
       - name: Set up Python 3
         uses: actions/setup-python@v4
