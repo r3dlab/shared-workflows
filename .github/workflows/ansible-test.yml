@@ -2,6 +2,12 @@ name: Ansible lint/test with Makefile
 
 on:
   workflow_call:
+    inputs:
+      use_priv_key:
+        description: Use SSH_PRIV_KEY flag
+        type: boolean
+        default: false
+        required: false
     secrets:
       SSH_PRIV_KEY:
         required: false
@@ -22,7 +28,9 @@ jobs:
         uses: webfactory/ssh-agent@v0.4.1
         with:
           ssh-private-key: ${{ secrets.SSH_PRIV_KEY }}
-        if: secrets.SSH_PRIV_KEY != null
+        # https://docs.github.com/en/actions/learn-github-actions/contexts
+        # secrets not allowed into 'if' section
+        if: inputs.use_priv_key
 
       - name: Set up Python 3
         uses: actions/setup-python@v4
