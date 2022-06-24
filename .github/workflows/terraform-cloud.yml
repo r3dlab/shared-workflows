@@ -1,0 +1,102 @@
+name: 'Terraform Cloud CI/CD'
+
+on:
+  workflow_call:
+    inputs:
+      tf_cli_version:
+        description: Terraform version to use
+        required: true
+        type: string
+      tf_apply_branch:
+        description: Branch to perform apply task
+        required: false
+        type: string
+        default: master
+    secrets:
+      TF_API_TOKEN:
+        required: true
+
+jobs:
+  terraform:
+    name: 'Terraform CI/CD'
+    runs-on: ubuntu-latest
+    # env:
+    #   ENV_FILE: deploy.env
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # - name: Import environment variables from a file
+      #   uses: c-py/action-dotenv-to-setenv@v3
+      #   with:
+      #     env-file: ${{ env.ENV_FILE }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: ${{ inputs.tf_cli_version }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Terraform Format
+        id: fmt
+        run: |
+          terraform fmt -check
+
+      - name: Terraform Init
+        id: init
+        run: |
+          terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: |
+          terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        continue-on-error: true
+        run: |
+          terraform plan -input=false
+        if: github.event_name == 'pull_request'
+
+      - uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`\n
+            ${process.env.PLAN}
+            \`\`\`
+
+            </details>
+
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+        env:
+          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+        if: github.event_name == 'pull_request'
+
+      - name: Terraform Plan Status
+        run: |
+          exit 1
+        if: steps.plan.outcome == 'failure'
+
+      - name: Terraform Apply
+        run: |
+          terraform apply -auto-approve -input=false
+        if: env.BRANCH_NAME == inputs.tf_apply_branch && github.event_name == 'push'

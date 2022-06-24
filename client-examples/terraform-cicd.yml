@@ -1,0 +1,60 @@
+name: 'Terraform CI/CD'
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  fetch_info:
+    name: Fetch Info
+    runs-on: ubuntu-latest
+    env:
+      ENV_FILE: deploy.env
+    defaults:
+      run:
+        working-directory: src
+    outputs:
+      tf_cli_version: ${{ steps.tf_cli.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Import environment variables from a file
+        uses: c-py/action-dotenv-to-setenv@v3
+        with:
+          env-file: ${{ env.ENV_FILE }}
+
+      - name: Read TF_CLI_VERSION
+        id: tf_cli
+        run: |
+          echo ::set-output name=version::${{ env.TF_CLI_VERSION }}
+
+  integration:
+    name: Integration
+    uses: r3dlab/shared-workflows/.github/workflows/terraform-cloud.yml@develop # TODO: master
+    needs:
+      - fetch_info
+    with:
+      tf_cli_version: ${{ needs.fetch_info.outputs.tf_cli_version }}
+      tf_apply_branch: master
+    secrets:
+      TF_API_TOKEN: ${{ TF_API_TOKEN }}
+
+  release:
+    name: Release
+    uses: r3dlab/shared-workflows/.github/workflows/bump-version-txt.yml@master
+    needs:
+      - integration
+    with:
+      tag_prefix: v
+      version_file_path: version.txt
+      branch_source: develop
+      branch_target: master
+    secrets:
+      GH_RELEASE_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' # Release from develop to master
