@@ -54,7 +54,6 @@ jobs:
         continue-on-error: true
         run: |
           terraform plan -input=false
-        if: github.event_name == 'pull_request'
 
       - uses: actions/github-script@v6
         with:
@@ -93,4 +92,4 @@ jobs:
       - name: Terraform Apply
         run: |
           terraform apply -auto-approve -input=false
-        if: env.BRANCH_NAME == inputs.tf_apply_branch && github.event_name == 'push'
+        if: startsWith(github.ref, 'refs/tags/v') # TF-Apply on tag release
