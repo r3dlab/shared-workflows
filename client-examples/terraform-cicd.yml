@@ -1,5 +1,8 @@
 name: 'Terraform CI/CD'
 
+# secrets.TF_API_TOKEN
+# secrets.GH_RELEASE_TOKEN
+
 on:
   push:
     branches:
@@ -15,9 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ENV_FILE: deploy.env
-    defaults:
-      run:
-        working-directory: src
     outputs:
       tf_cli_version: ${{ steps.tf_cli.outputs.version }}
     steps:
@@ -43,7 +43,7 @@ jobs:
       tf_cli_version: ${{ needs.fetch_info.outputs.tf_cli_version }}
       tf_apply_branch: master
     secrets:
-      TF_API_TOKEN: ${{ TF_API_TOKEN }}
+      TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
 
   release:
     name: Release
@@ -58,3 +58,4 @@ jobs:
     secrets:
       GH_RELEASE_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop' # Release from develop to master
+
