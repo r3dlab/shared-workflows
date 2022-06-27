@@ -1,0 +1,41 @@
+name: 'Terraform CD'
+
+# secrets.TF_API_TOKEN
+
+on:
+  release:
+    types:
+      - created
+
+jobs:
+  fetch_info:
+    name: Fetch Info
+    runs-on: ubuntu-latest
+    env:
+      ENV_FILE: deploy.env
+    outputs:
+      tf_cli_version: ${{ steps.tf_cli.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Import environment variables from a file
+        uses: c-py/action-dotenv-to-setenv@v3
+        with:
+          env-file: ${{ env.ENV_FILE }}
+
+      - name: Read TF_CLI_VERSION
+        id: tf_cli
+        run: |
+          echo ::set-output name=version::${{ env.TF_CLI_VERSION }}
+
+  integration:
+    name: Integration
+    uses: r3dlab/shared-workflows/.github/workflows/terraform-cd.yml@develop # TODO: master
+    needs:
+      - fetch_info
+    with:
+      tf_cli_version: ${{ needs.fetch_info.outputs.tf_cli_version }}
+      tf_apply_branch: master
+    secrets:
+      TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}

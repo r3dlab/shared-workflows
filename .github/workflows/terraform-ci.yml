@@ -1,0 +1,95 @@
+name: 'Terraform Cloud CI'
+
+on:
+  workflow_call:
+    inputs:
+      tf_cli_version:
+        description: Terraform version to use
+        required: true
+        type: string
+    secrets:
+      TF_API_TOKEN:
+        required: true
+
+jobs:
+  terraform:
+    name: 'Terraform CI'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ inputs.tf_cli_version }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          cli_config_credentials_hostname: app.terraform.io
+
+      - name: Terraform Format
+        id: fmt
+        run: |
+          terraform fmt -check
+
+      - name: Terraform Init
+        id: init
+        run: |
+          terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: |
+          terraform validate
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -input=false
+        if: github.event_name != 'pull_request'
+
+      - name: Terraform Plan (-no-color)
+        id: plan
+        continue-on-error: true
+        run: |
+          terraform plan -input=false -no-color
+        if: github.event_name == 'pull_request'
+
+      - uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+            #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`\n
+            ${process.env.PLAN}
+            \`\`\`
+
+            </details>
+
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+        env:
+          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+        if: github.event_name == 'pull_request'
+
+      - name: Terraform Plan Status
+        run: |
+          exit 1
+        if: github.event_name == 'pull_request' && steps.plan.outcome == 'failure'
+
+      - name: Dump context
+        uses: crazy-max/ghaction-dump-context@v1
+        if: failure()

@@ -1,0 +1,49 @@
+name: 'Terraform Cloud CD'
+
+on:
+  workflow_call:
+    inputs:
+      tf_cli_version:
+        description: Terraform version to use
+        required: true
+        type: string
+      tf_apply_branch: # TODO: supports trigger on branch
+        description: Branch to perform apply task
+        required: false
+        type: string
+        default: master
+    secrets:
+      TF_API_TOKEN:
+        required: true
+
+jobs:
+  terraform:
+    name: 'Terraform CD'
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') # TF-Apply on tag release
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ inputs.tf_cli_version }}
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          cli_config_credentials_hostname: app.terraform.io
+
+      - name: Terraform Init
+        id: init
+        run: |
+          terraform init
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -input=false
+
+      - name: Terraform Apply
+        run: |
+          terraform apply -auto-approve -input=false
